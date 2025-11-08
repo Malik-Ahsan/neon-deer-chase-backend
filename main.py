@@ -52,9 +52,7 @@ async def shutdown_db_client():
     client.close()
 
 # CORS configuration
-origins = [
-    "http://localhost:5137",
-]
+origins = os.getenv("CORS_ORIGINS", "http://localhost:5137").split(",")
 
 app.add_middleware(
     CORSMiddleware,
@@ -98,7 +96,7 @@ def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
             headers={"WWW-Authenticate": "Bearer"},
         )
     
-    access_token_expires = timedelta(minutes=60)
+    access_token_expires = timedelta(minutes=int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 60)))
     access_token = create_access_token(
         data={"sub": user["email"]}, expires_delta=access_token_expires
     )
