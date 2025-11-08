@@ -23,6 +23,16 @@ def parse_experience(raw_text):
 
     text = raw_text[experience_section.end():]
     
+    FUNCTIONAL_ROLES = {
+        "Software Engineering": ["python", "backend", "api", "developer", "software"],
+        "Product Management": ["product", "roadmap", "feature", "agile"]
+    }
+
+    INDUSTRY_DOMAINS = {
+        "E-commerce": ["e-commerce", "inventory", "payment"],
+        "Fintech": ["fintech", "payment", "financial"]
+    }
+
     # Simple regex to find job title, company, and date range
     # This is a heuristic and may need to be improved
     # This regex is designed to find blocks of text that represent a single company's experience.
@@ -43,11 +53,28 @@ def parse_experience(raw_text):
 
         for role_match in role_pattern.finditer(details_block):
             title, date_range, description = role_match.groups()
+            
+            functional_roles = []
+            industry_domains = []
+
+            # Auto-tagging logic
+            for role, keywords in FUNCTIONAL_ROLES.items():
+                if any(keyword in description.lower() for keyword in keywords):
+                    if role not in functional_roles:
+                        functional_roles.append(role)
+
+            for domain, keywords in INDUSTRY_DOMAINS.items():
+                if any(keyword in description.lower() for keyword in keywords):
+                    if domain not in industry_domains:
+                        industry_domains.append(domain)
+
             experience.append({
                 "id": str(uuid.uuid4()),
                 "title": title.strip(),
                 "company": company,
-                "description": description.strip()
+                "description": description.strip(),
+                "functionalRoles": functional_roles,
+                "industryDomains": industry_domains
             })
     return experience
 
