@@ -5,10 +5,13 @@ from pymongo import MongoClient
 import os
 from dotenv import load_dotenv
 from models import UserIn, User
-from auth import get_password_hash, verify_password, create_access_token, get_current_user
+from auth import get_password_hash, verify_password, create_access_token, get_current_user, oauth2_scheme
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi import Depends, HTTPException, status
-from datetime import timedelta
+from datetime import timedelta, datetime
+from jose import jwt, JWTError
+import resume
+import subscription
 
 # Construct the path to the .env file relative to this script
 dotenv_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
@@ -95,12 +98,37 @@ def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
             headers={"WWW-Authenticate": "Bearer"},
         )
     
-    access_token_expires = timedelta(minutes=30)
+    access_token_expires = timedelta(minutes=60)
     access_token = create_access_token(
         data={"sub": user["email"]}, expires_delta=access_token_expires
     )
     
-    return {"access_token": access_token, "token_type": "bearer", "user": {"username": user["username"], "email": user["email"]}}
+    return {"access_token": access_token, "token_type": "bearer", "user": {"username": user["username"], "email": user["email"], "subscriptionTier": user.get("subscription", "free")}}
+
+@app.post("/api/v1/auth/logout")
+def logout(token: str = Depends(oauth2_scheme), _: User = Depends(get_current_user)):
+    try:
+        payload = jwt.decode(token, os.getenv("JWT_SECRET_KEY"), algorithms=[os.getenv("ALGORITHM")])
+        jti = payload.get("jti")
+        
+        db = client.get_database("resume_pivot")
+        blocklist_collection = db.get_collection("token_blocklist")
+        
+        blocklist_collection.insert_one({
+            "jti": jti,
+            "created_at": datetime.utcnow()
+        })
+        
+        return {"message": "Successfully logged out"}
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+app.include_router(resume.router, prefix="/api/v1", tags=["resume"])
+app.include_router(subscription.router, prefix="/api/v1", tags=["subscription"])
 
 @app.get("/api/v1/users/me", response_model=User)
 async def read_users_me(current_user: User = Depends(get_current_user)):
