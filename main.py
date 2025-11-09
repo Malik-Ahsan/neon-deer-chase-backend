@@ -28,21 +28,23 @@ client = None
 async def startup_db_client():
     global client
     mongo_uri = None
-    try:
-        dotenv_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
-        with open(dotenv_path) as f:
-            for line in f:
-                line = line.strip()
-                if line and not line.startswith('#') and '=' in line:
-                    key, value = line.split('=', 1)
-                    if key.strip() == 'MONGODB_URI':
-                        mongo_uri = value.strip().strip('"\'')
-                        break
-    except FileNotFoundError:
-        raise Exception(f".env file not found at {dotenv_path}")
+    mongo_uri = os.getenv("MONGODB_URI")
+    if not mongo_uri:
+        try:
+            dotenv_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
+            with open(dotenv_path) as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith('#') and '=' in line:
+                        key, value = line.split('=', 1)
+                        if key.strip() == 'MONGODB_URI':
+                            mongo_uri = value.strip().strip('"\'')
+                            break
+        except FileNotFoundError:
+            pass  # .env file is optional, especially in production
 
     if not mongo_uri:
-        raise Exception("MONGODB_URI not found or is empty in .env file")
+        raise Exception("MONGODB_URI not found in environment variables or .env file")
         
     client = MongoClient(mongo_uri, serverSelectionTimeoutMS=5000)
 
